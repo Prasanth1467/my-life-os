@@ -13,7 +13,6 @@ export function createClient() {
       params: { eventsPerSecond: 30 },
     },
     auth: {
-      flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
     },

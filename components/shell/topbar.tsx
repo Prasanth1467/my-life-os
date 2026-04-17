@@ -99,7 +99,8 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
                   : derived.cloudSync === "syncing"
                     ? "Writing to Supabase. Your UI stays responsive."
                     : derived.cloudSync === "error"
-                      ? "Check NEXT_PUBLIC_SUPABASE_* env vars and enable Anonymous sign-in in Supabase."
+                      ? derived.cloudSyncMessage ??
+                        "Check .env (or Vercel env): NEXT_PUBLIC_SUPABASE_URL and anon/publishable key; restart dev server. Enable Anonymous sign-in in Supabase."
                       : "Waiting for the next save."}
               </TooltipContent>
             </Tooltip>

@@ -64,6 +64,8 @@ type LifeStoreState = {
   error: string | null
   cloudAuth: CloudAuthStatus
   cloudSync: CloudSyncStatus
+  /** Last sync/auth failure detail (shown in UI when cloudSync is error). */
+  cloudSyncMessage: string | null
   cloudRealtime: CloudRealtimeStatus
   cloudLastSyncedAt: number | null
 }
@@ -78,6 +80,7 @@ const initial: LifeStoreState = {
   error: null,
   cloudAuth: "disabled",
   cloudSync: "idle",
+  cloudSyncMessage: null,
   cloudRealtime: "off",
   cloudLastSyncedAt: null,
 }
@@ -119,12 +122,17 @@ async function applyRemoteLifeStateFromRealtime(next: LifeStateV1, serverUpdated
 async function syncToSupabase(payload: LifeStateV1) {
   if (!isSupabaseBrowserConfigured()) return
 
-  store.set((s) => ({ ...s, cloudSync: "syncing" }))
+  store.set((s) => ({ ...s, cloudSync: "syncing", cloudSyncMessage: null }))
   try {
     const client = createClient()
     const auth = await ensureAnonymousSession(client)
-    if (auth !== "ready") {
-      store.set((s) => ({ ...s, cloudAuth: auth, cloudSync: "error" }))
+    if (auth.status !== "ready") {
+      store.set((s) => ({
+        ...s,
+        cloudAuth: auth.status,
+        cloudSync: "error",
+        cloudSyncMessage: auth.message ?? null,
+      }))
       return
     }
     store.set((s) => ({ ...s, cloudAuth: "ready" }))
@@ -134,13 +142,22 @@ async function syncToSupabase(payload: LifeStateV1) {
       store.set((s) => ({
         ...s,
         cloudSync: "synced",
+        cloudSyncMessage: null,
         cloudLastSyncedAt: Date.now(),
       }))
     } else {
-      store.set((s) => ({ ...s, cloudSync: "error" }))
+      store.set((s) => ({
+        ...s,
+        cloudSync: "error",
+        cloudSyncMessage: result.message ?? "Could not save to Supabase",
+      }))
     }
-  } catch {
-    store.set((s) => ({ ...s, cloudSync: "error" }))
+  } catch (e) {
+    store.set((s) => ({
+      ...s,
+      cloudSync: "error",
+      cloudSyncMessage: e instanceof Error ? e.message : String(e),
+    }))
   }
 }
 
@@ -149,16 +166,30 @@ async function initCloudSync(driver: PersistDriver) {
   realtimeCleanup = null
 
   if (!isSupabaseBrowserConfigured()) {
-    store.set((s) => ({ ...s, cloudAuth: "disabled", cloudSync: "idle", cloudRealtime: "off" }))
+    store.set((s) => ({
+      ...s,
+      cloudAuth: "disabled",
+      cloudSync: "idle",
+      cloudSyncMessage: null,
+      cloudRealtime: "off",
+    }))
     return
   }
 
   try {
     const client = createClient()
     const auth = await ensureAnonymousSession(client)
-    store.set((s) => ({ ...s, cloudAuth: auth }))
-    if (auth !== "ready") {
-      store.set((s) => ({ ...s, cloudRealtime: "off" }))
+    store.set((s) => ({
+      ...s,
+      cloudAuth: auth.status,
+      cloudSyncMessage: auth.status !== "ready" ? (auth.message ?? null) : null,
+    }))
+    if (auth.status !== "ready") {
+      store.set((s) => ({
+        ...s,
+        cloudRealtime: "off",
+        cloudSync: auth.status === "disabled" ? "idle" : "error",
+      }))
       return
     }
 
@@ -182,6 +213,7 @@ async function initCloudSync(driver: PersistDriver) {
             ...s,
             state: next,
             cloudSync: "synced",
+            cloudSyncMessage: null,
             cloudLastSyncedAt: Date.now(),
           }))
           if (driver === "idb") await saveState(driver, next)
@@ -233,8 +265,14 @@ async function initCloudSync(driver: PersistDriver) {
       document.removeEventListener("visibilitychange", onVisibility)
       void client.removeChannel(channel)
     }
-  } catch {
-    store.set((s) => ({ ...s, cloudAuth: "error", cloudSync: "error", cloudRealtime: "error" }))
+  } catch (e) {
+    store.set((s) => ({
+      ...s,
+      cloudAuth: "error",
+      cloudSync: "error",
+      cloudSyncMessage: e instanceof Error ? e.message : String(e),
+      cloudRealtime: "error",
+    }))
   }
 }
 
@@ -373,6 +411,7 @@ export function useLifeDerived() {
         error: s.error,
         cloudAuth: s.cloudAuth,
         cloudSync: s.cloudSync,
+        cloudSyncMessage: s.cloudSyncMessage,
         cloudRealtime: s.cloudRealtime,
         cloudLastSyncedAt: s.cloudLastSyncedAt,
       }
