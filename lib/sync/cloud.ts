@@ -1,6 +1,9 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js"
 
 import { isSupabaseBrowserConfigured } from "@/lib/supabase/env"
+
+/** Emitted by Realtime `subscribe()` — used for UI + reconnect hints. */
+export type RealtimeSubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CLOSED" | "CHANNEL_ERROR"
 import { migrateState } from "@/lib/life/migrations"
 import type { LifeStateV1 } from "@/lib/life/types"
 import { validateState } from "@/lib/life/validate"
@@ -95,10 +98,10 @@ export async function pushLifeState(client: SupabaseClient, state: LifeStateV1):
 export function subscribeLifeState(
   client: SupabaseClient,
   userId: string,
-  onRow: (next: LifeStateV1, serverUpdatedAt: string) => void
+  onRow: (next: LifeStateV1, serverUpdatedAt: string) => void,
+  onSubscribeStatus?: (status: RealtimeSubscribeStatus, err?: Error) => void
 ): RealtimeChannel {
-  return client
-    .channel(`life_state:${userId}`)
+  const channel = client.channel(`life_state:${userId}`)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "life_state", filter: `user_id=eq.${userId}` },
@@ -114,5 +117,15 @@ export function subscribeLifeState(
         onRow(mig.state as LifeStateV1, updatedAt)
       }
     )
-    .subscribe()
+  channel.subscribe((status, err) => {
+    onSubscribeStatus?.(status as RealtimeSubscribeStatus, err)
+  })
+  return channel
+}
+
+/** Call after sign-in / refresh so Realtime postgres_changes respect JWT + RLS. */
+export async function syncRealtimeAuth(client: SupabaseClient): Promise<void> {
+  const { data } = await client.auth.getSession()
+  const token = data.session?.access_token
+  if (token) client.realtime.setAuth(token)
 }

@@ -77,7 +77,11 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
                   {derived.cloudSync === "syncing"
                     ? "Syncing"
                     : derived.cloudSync === "synced"
-                      ? "Synced"
+                      ? derived.cloudRealtime === "live"
+                        ? "Synced · Live"
+                        : derived.cloudRealtime === "connecting"
+                          ? "Synced · RT…"
+                          : "Synced"
                       : derived.cloudSync === "error"
                         ? "Sync error"
                         : "Idle"}
@@ -85,7 +89,13 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 {derived.cloudSync === "synced"
-                  ? "All changes are saved to Supabase and broadcast in realtime."
+                  ? derived.cloudRealtime === "live"
+                    ? "Synced — Realtime channel is live; multi-device updates apply automatically."
+                    : derived.cloudRealtime === "connecting"
+                      ? "Synced — connecting Realtime channel…"
+                      : derived.cloudRealtime === "error"
+                        ? "Synced to DB — Realtime reconnecting. Data is still saved."
+                        : "All changes are saved to Supabase."
                   : derived.cloudSync === "syncing"
                     ? "Writing to Supabase. Your UI stays responsive."
                     : derived.cloudSync === "error"

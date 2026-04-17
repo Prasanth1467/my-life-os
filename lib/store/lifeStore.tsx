@@ -45,10 +45,14 @@ import {
   parseServerUpdatedAtMs,
   pushLifeState,
   subscribeLifeState,
+  syncRealtimeAuth,
   type CloudAuthStatus,
 } from "@/lib/sync/cloud"
 
 export type CloudSyncStatus = "idle" | "syncing" | "synced" | "error"
+
+/** Supabase Realtime channel for `life_state` (browser only). */
+export type CloudRealtimeStatus = "off" | "connecting" | "live" | "error"
 
 type LifeStoreState = {
   driver: PersistDriver
@@ -60,6 +64,7 @@ type LifeStoreState = {
   error: string | null
   cloudAuth: CloudAuthStatus
   cloudSync: CloudSyncStatus
+  cloudRealtime: CloudRealtimeStatus
   cloudLastSyncedAt: number | null
 }
 
@@ -73,6 +78,7 @@ const initial: LifeStoreState = {
   error: null,
   cloudAuth: "disabled",
   cloudSync: "idle",
+  cloudRealtime: "off",
   cloudLastSyncedAt: null,
 }
 
@@ -143,7 +149,7 @@ async function initCloudSync(driver: PersistDriver) {
   realtimeCleanup = null
 
   if (!isSupabaseBrowserConfigured()) {
-    store.set((s) => ({ ...s, cloudAuth: "disabled", cloudSync: "idle" }))
+    store.set((s) => ({ ...s, cloudAuth: "disabled", cloudSync: "idle", cloudRealtime: "off" }))
     return
   }
 
@@ -151,7 +157,17 @@ async function initCloudSync(driver: PersistDriver) {
     const client = createClient()
     const auth = await ensureAnonymousSession(client)
     store.set((s) => ({ ...s, cloudAuth: auth }))
-    if (auth !== "ready") return
+    if (auth !== "ready") {
+      store.set((s) => ({ ...s, cloudRealtime: "off" }))
+      return
+    }
+
+    await syncRealtimeAuth(client)
+    const {
+      data: { subscription: authSub },
+    } = client.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) client.realtime.setAuth(session.access_token)
+    })
 
     const remote = await fetchRemoteLifeState(client)
     if (remote) {
@@ -175,16 +191,50 @@ async function initCloudSync(driver: PersistDriver) {
 
     const { data: userData } = await client.auth.getUser()
     const uid = userData.user?.id
-    if (!uid) return
+    if (!uid) {
+      authSub.unsubscribe()
+      store.set((s) => ({ ...s, cloudRealtime: "off" }))
+      return
+    }
 
-    const channel = subscribeLifeState(client, uid, (next, updatedAt) => {
-      void applyRemoteLifeStateFromRealtime(next, updatedAt)
-    })
+    store.set((s) => ({ ...s, cloudRealtime: "connecting" }))
+
+    const channel = subscribeLifeState(
+      client,
+      uid,
+      (next, updatedAt) => {
+        void applyRemoteLifeStateFromRealtime(next, updatedAt)
+      },
+      (status) => {
+        if (status === "SUBSCRIBED") {
+          store.set((s) => ({ ...s, cloudRealtime: "live" }))
+          return
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          store.set((s) => ({ ...s, cloudRealtime: "error" }))
+          client.realtime.connect()
+          return
+        }
+        if (status === "CLOSED") {
+          store.set((s) => ({ ...s, cloudRealtime: "off" }))
+        }
+      }
+    )
+
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return
+      void syncRealtimeAuth(client)
+      client.realtime.connect()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
     realtimeCleanup = () => {
+      authSub.unsubscribe()
+      document.removeEventListener("visibilitychange", onVisibility)
       void client.removeChannel(channel)
     }
   } catch {
-    store.set((s) => ({ ...s, cloudAuth: "error", cloudSync: "error" }))
+    store.set((s) => ({ ...s, cloudAuth: "error", cloudSync: "error", cloudRealtime: "error" }))
   }
 }
 
@@ -323,6 +373,7 @@ export function useLifeDerived() {
         error: s.error,
         cloudAuth: s.cloudAuth,
         cloudSync: s.cloudSync,
+        cloudRealtime: s.cloudRealtime,
         cloudLastSyncedAt: s.cloudLastSyncedAt,
       }
     },
