@@ -25,11 +25,13 @@ import type {
   Mood,
   TodayTaskId,
 } from "@/lib/life/types"
+import { finalizeHeatmapDays } from "@/lib/life/heatmap"
 import { CURRENT_SCHEMA_VERSION, migrateState } from "@/lib/life/migrations"
 import { xpForDay } from "@/lib/life/selectors"
 import { validateState } from "@/lib/life/validate"
 import {
   createBackup,
+  detectDriver,
   exportData,
   importData,
   loadState,
@@ -41,22 +43,15 @@ import { createClient } from "@/lib/supabase/client"
 import { isSupabaseBrowserConfigured } from "@/lib/supabase/env"
 import {
   ensureAnonymousSession,
-  fetchRemoteLifeState,
-  parseServerUpdatedAtMs,
-  pushLifeState,
-  subscribeLifeState,
-  syncRealtimeAuth,
+  fetchLifeStatePrimary,
+  upsertLifeStateBackup,
   type CloudAuthStatus,
-} from "@/lib/sync/cloud"
+} from "@/lib/supabase/backup"
 
 export type CloudSyncStatus = "idle" | "syncing" | "synced" | "error"
 
-/** Supabase Realtime channel for `life_state` (browser only). */
-export type CloudRealtimeStatus = "off" | "connecting" | "live" | "error"
-
 type LifeStoreState = {
   driver: PersistDriver
-  hydrated: boolean
   saving: boolean
   lastSavedAt: number | null
   lastBackupAt: number | null
@@ -64,15 +59,12 @@ type LifeStoreState = {
   error: string | null
   cloudAuth: CloudAuthStatus
   cloudSync: CloudSyncStatus
-  /** Last sync/auth failure detail (shown in UI when cloudSync is error). */
   cloudSyncMessage: string | null
-  cloudRealtime: CloudRealtimeStatus
   cloudLastSyncedAt: number | null
 }
 
 const initial: LifeStoreState = {
   driver: "idb",
-  hydrated: false,
   saving: false,
   lastSavedAt: null,
   lastBackupAt: null,
@@ -81,49 +73,53 @@ const initial: LifeStoreState = {
   cloudAuth: "disabled",
   cloudSync: "idle",
   cloudSyncMessage: null,
-  cloudRealtime: "off",
   cloudLastSyncedAt: null,
 }
 
 const store: Store<LifeStoreState> = createStore(initial)
 
 let saveTimer: number | null = null
-let inFlight = Promise.resolve()
-let realtimeCleanup: (() => void) | null = null
-/** Monotonic server clock (life_state.updated_at) for latest-write-wins + duplicate Realtime suppression */
-let lastServerAppliedMs = 0
+let retryAfterFailTimer: number | null = null
+let persistTail = Promise.resolve()
 
-async function applyRemoteLifeStateFromRealtime(next: LifeStateV1, serverUpdatedAt: string) {
-  const incomingMs = parseServerUpdatedAtMs(serverUpdatedAt)
-  if (!Number.isFinite(incomingMs)) return
-  if (incomingMs <= lastServerAppliedMs) return
+function scheduleRetryFlush() {
+  if (retryAfterFailTimer) window.clearTimeout(retryAfterFailTimer)
+  retryAfterFailTimer = window.setTimeout(() => {
+    retryAfterFailTimer = null
+    void flushSave()
+  }, 5000)
+}
 
-  lastServerAppliedMs = incomingMs
-  const snap = store.get()
-  if (!snap.hydrated) return
-
-  const merged: LifeStateV1 = { ...next, updatedAt: incomingMs }
-  store.set((s) => ({
-    ...s,
-    state: merged,
-    cloudSync: "synced",
-    cloudLastSyncedAt: Date.now(),
-    error: null,
-  }))
-  if (snap.driver === "idb") {
-    try {
-      await saveState(snap.driver, merged)
-    } catch {
-      /* ignore */
-    }
+async function writeCache(driver: PersistDriver, payload: LifeStateV1): Promise<void> {
+  try {
+    await saveState(driver, payload)
+  } catch {
+    /* cache best-effort */
   }
 }
 
-async function syncToSupabase(payload: LifeStateV1) {
-  if (!isSupabaseBrowserConfigured()) return
+/**
+ * Supabase first, then IndexedDB / Tauri cache. On cloud failure, still writes cache and flags error.
+ */
+async function runPersist(): Promise<void> {
+  store.set((s) => ({ ...s, saving: true, error: null }))
+  const payload = store.get().state
+  const driver = store.get().driver
 
-  store.set((s) => ({ ...s, cloudSync: "syncing", cloudSyncMessage: null }))
   try {
+    if (!isSupabaseBrowserConfigured()) {
+      await writeCache(driver, payload)
+      store.set((s) => ({
+        ...s,
+        saving: false,
+        lastSavedAt: Date.now(),
+        cloudSync: "idle",
+        cloudAuth: "disabled",
+      }))
+      return
+    }
+
+    store.set((s) => ({ ...s, cloudSync: "syncing", cloudSyncMessage: null }))
     const client = createClient()
     const auth = await ensureAnonymousSession(client)
     if (auth.status !== "ready") {
@@ -133,12 +129,14 @@ async function syncToSupabase(payload: LifeStateV1) {
         cloudSync: "error",
         cloudSyncMessage: auth.message ?? null,
       }))
+      await writeCache(driver, payload)
+      scheduleRetryFlush()
       return
     }
+
     store.set((s) => ({ ...s, cloudAuth: "ready" }))
-    const result = await pushLifeState(client, payload)
+    const result = await upsertLifeStateBackup(client, payload)
     if (result.ok) {
-      lastServerAppliedMs = parseServerUpdatedAtMs(result.updatedAt)
       store.set((s) => ({
         ...s,
         cloudSync: "synced",
@@ -151,129 +149,25 @@ async function syncToSupabase(payload: LifeStateV1) {
         cloudSync: "error",
         cloudSyncMessage: result.message ?? "Could not save to Supabase",
       }))
+      scheduleRetryFlush()
     }
+
+    await writeCache(driver, payload)
   } catch (e) {
     store.set((s) => ({
       ...s,
       cloudSync: "error",
       cloudSyncMessage: e instanceof Error ? e.message : String(e),
     }))
+    await writeCache(driver, payload)
+    scheduleRetryFlush()
+  } finally {
+    store.set((s) => ({ ...s, saving: false, lastSavedAt: Date.now() }))
   }
 }
 
-async function initCloudSync(driver: PersistDriver) {
-  realtimeCleanup?.()
-  realtimeCleanup = null
-
-  if (!isSupabaseBrowserConfigured()) {
-    store.set((s) => ({
-      ...s,
-      cloudAuth: "disabled",
-      cloudSync: "idle",
-      cloudSyncMessage: null,
-      cloudRealtime: "off",
-    }))
-    return
-  }
-
-  try {
-    const client = createClient()
-    const auth = await ensureAnonymousSession(client)
-    store.set((s) => ({
-      ...s,
-      cloudAuth: auth.status,
-      cloudSyncMessage: auth.status !== "ready" ? (auth.message ?? null) : null,
-    }))
-    if (auth.status !== "ready") {
-      store.set((s) => ({
-        ...s,
-        cloudRealtime: "off",
-        cloudSync: auth.status === "disabled" ? "idle" : "error",
-      }))
-      return
-    }
-
-    await syncRealtimeAuth(client)
-    const {
-      data: { subscription: authSub },
-    } = client.auth.onAuthStateChange((_event, session) => {
-      if (session?.access_token) client.realtime.setAuth(session.access_token)
-    })
-
-    const remote = await fetchRemoteLifeState(client)
-    if (remote) {
-      const valid = validateState(remote.state)
-      if (valid.ok) {
-        const mig = migrateState(valid.value)
-        if (mig.ok) {
-          const incomingMs = parseServerUpdatedAtMs(remote.updatedAt)
-          lastServerAppliedMs = incomingMs
-          const next = { ...(mig.state as LifeStateV1), updatedAt: incomingMs }
-          store.set((s) => ({
-            ...s,
-            state: next,
-            cloudSync: "synced",
-            cloudSyncMessage: null,
-            cloudLastSyncedAt: Date.now(),
-          }))
-          if (driver === "idb") await saveState(driver, next)
-        }
-      }
-    }
-
-    const { data: userData } = await client.auth.getUser()
-    const uid = userData.user?.id
-    if (!uid) {
-      authSub.unsubscribe()
-      store.set((s) => ({ ...s, cloudRealtime: "off" }))
-      return
-    }
-
-    store.set((s) => ({ ...s, cloudRealtime: "connecting" }))
-
-    const channel = subscribeLifeState(
-      client,
-      uid,
-      (next, updatedAt) => {
-        void applyRemoteLifeStateFromRealtime(next, updatedAt)
-      },
-      (status) => {
-        if (status === "SUBSCRIBED") {
-          store.set((s) => ({ ...s, cloudRealtime: "live" }))
-          return
-        }
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          store.set((s) => ({ ...s, cloudRealtime: "error" }))
-          client.realtime.connect()
-          return
-        }
-        if (status === "CLOSED") {
-          store.set((s) => ({ ...s, cloudRealtime: "off" }))
-        }
-      }
-    )
-
-    const onVisibility = () => {
-      if (document.visibilityState !== "visible") return
-      void syncRealtimeAuth(client)
-      client.realtime.connect()
-    }
-    document.addEventListener("visibilitychange", onVisibility)
-
-    realtimeCleanup = () => {
-      authSub.unsubscribe()
-      document.removeEventListener("visibilitychange", onVisibility)
-      void client.removeChannel(channel)
-    }
-  } catch (e) {
-    store.set((s) => ({
-      ...s,
-      cloudAuth: "error",
-      cloudSync: "error",
-      cloudSyncMessage: e instanceof Error ? e.message : String(e),
-      cloudRealtime: "error",
-    }))
-  }
+function flushSave() {
+  persistTail = persistTail.then(runPersist).catch(() => {})
 }
 
 function scheduleSave(ms = 550) {
@@ -281,27 +175,6 @@ function scheduleSave(ms = 550) {
   saveTimer = window.setTimeout(() => {
     void flushSave()
   }, ms)
-}
-
-async function flushSave() {
-  const snap = store.get()
-  if (!snap.hydrated) return
-  if (snap.saving) return
-
-  store.set((s) => ({ ...s, saving: true, error: null }))
-  const payload = store.get().state
-  inFlight = inFlight
-    .then(async () => {
-      await saveState(store.get().driver, payload)
-      await syncToSupabase(payload)
-    })
-    .then(() => {
-      store.set((s) => ({ ...s, saving: false, lastSavedAt: Date.now() }))
-    })
-    .catch((e: unknown) => {
-      store.set((s) => ({ ...s, saving: false, error: e instanceof Error ? e.message : String(e) }))
-    })
-  await inFlight
 }
 
 function bumpUpdated(state: LifeStateV1): LifeStateV1 {
@@ -316,61 +189,165 @@ function setState(mutator: (prev: LifeStateV1) => LifeStateV1, save = true) {
   if (save) scheduleSave()
 }
 
-export async function hydrateLifeStore(): Promise<void> {
-  const { driver, state } = await loadState()
+function normalizeLoadedState(raw: LifeStateV1): LifeStateV1 {
+  let next = raw
+  if (next.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+    next = { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
+  }
+  return finalizeHeatmapDays(next)
+}
 
+/** Offline or auth failure: load cache only (IndexedDB / Tauri). */
+async function hydrateFromCacheOnly(driver: PersistDriver): Promise<void> {
+  const { state } = await loadState()
   if (!state) {
     const fresh = makeDefaultState()
-    if (driver === "supabase") {
-      store.set((s) => ({ ...s, driver, hydrated: false, state: fresh }))
-      await initCloudSync(driver)
-      store.set((s) => ({ ...s, hydrated: true }))
-      scheduleSave(10)
-      return
-    }
-    store.set((s) => ({ ...s, driver, hydrated: true, state: fresh }))
-    await initCloudSync(driver)
-    scheduleSave(10)
+    store.set((s) => ({ ...s, driver, state: fresh, cloudSync: "idle" }))
+    await writeCache(driver, fresh)
     return
   }
-
   const valid = validateState(state)
   if (!valid.ok) {
-    const fresh = makeDefaultState()
-    store.set((s) => ({ ...s, driver, hydrated: true, state: fresh, error: `Invalid saved state: ${valid.error}` }))
-    await initCloudSync(driver)
-    scheduleSave(10)
+    store.set((s) => ({
+      ...s,
+      driver,
+      state: makeDefaultState(),
+      error: `Invalid cache: ${valid.error}`,
+      cloudSync: "idle",
+    }))
     return
   }
-
   const migrated = migrateState(valid.value)
   if (!migrated.ok) {
-    const fresh = makeDefaultState()
-    store.set((s) => ({ ...s, driver, hydrated: true, state: fresh, error: migrated.error }))
-    await initCloudSync(driver)
-    scheduleSave(10)
+    store.set((s) => ({
+      ...s,
+      driver,
+      state: makeDefaultState(),
+      error: migrated.error,
+      cloudSync: "idle",
+    }))
     return
   }
-
-  const next = migrated.state as LifeStateV1
   store.set((s) => ({
     ...s,
     driver,
-    hydrated: true,
-    state:
-      next.schemaVersion === CURRENT_SCHEMA_VERSION
-        ? next
-        : ({ ...next, schemaVersion: CURRENT_SCHEMA_VERSION } as LifeStateV1),
+    state: normalizeLoadedState(migrated.state as LifeStateV1),
+    cloudSync: "idle",
+  }))
+}
+
+/**
+ * Primary: Supabase `select data`. Then cache to IndexedDB.
+ * Fallback: cache if cloud unavailable. No blank screen — initial default until async completes.
+ */
+export async function hydrateLifeStore(): Promise<void> {
+  const driver = await detectDriver()
+
+  if (!isSupabaseBrowserConfigured()) {
+    store.set((s) => ({ ...s, cloudAuth: "disabled", cloudSync: "idle", cloudSyncMessage: null }))
+    await hydrateFromCacheOnly(driver)
+    return
+  }
+
+  const client = createClient()
+  const auth = await ensureAnonymousSession(client)
+  if (auth.status !== "ready") {
+    store.set((s) => ({
+      ...s,
+      driver,
+      cloudAuth: auth.status,
+      cloudSync: "error",
+      cloudSyncMessage: auth.message ?? null,
+    }))
+    await hydrateFromCacheOnly(driver)
+    return
+  }
+
+  store.set((s) => ({ ...s, driver, cloudAuth: "ready", cloudSync: "syncing" }))
+
+  const remote = await fetchLifeStatePrimary(client)
+
+  if (!remote.ok) {
+    store.set((s) => ({
+      ...s,
+      cloudSync: "error",
+      cloudSyncMessage: remote.message,
+    }))
+    await hydrateFromCacheOnly(driver)
+    return
+  }
+
+  if (remote.state) {
+    let next = remote.state
+    if (next.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+      next = { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
+    }
+    next = finalizeHeatmapDays(next)
+    store.set((s) => ({
+      ...s,
+      state: next,
+      error: null,
+      cloudSync: "synced",
+      cloudLastSyncedAt: Date.now(),
+      cloudSyncMessage: null,
+    }))
+    await writeCache(driver, next)
+
+    if (remote.migration?.migrated) {
+      setState(
+        (p) =>
+          applyXP(p, isoToday(), 0, "system.migrate", {
+            from: remote.migration!.fromVersion,
+            to: CURRENT_SCHEMA_VERSION,
+          }),
+        true
+      )
+    }
+    return
+  }
+
+  // No remote row: seed from local cache if valid, else default; upsert to Supabase, then cache.
+  const { state: cached } = await loadState()
+  let next: LifeStateV1
+  if (cached) {
+    const valid = validateState(cached)
+    if (valid.ok) {
+      const m = migrateState(valid.value)
+      if (m.ok) {
+        next = normalizeLoadedState(m.state as LifeStateV1)
+      } else {
+        next = makeDefaultState()
+      }
+    } else {
+      next = makeDefaultState()
+    }
+  } else {
+    next = makeDefaultState()
+  }
+
+  store.set((s) => ({
+    ...s,
+    state: next,
+    error: null,
+    cloudSync: "syncing",
   }))
 
-  await initCloudSync(driver)
-
-  if (migrated.migrated) {
-    setState(
-      (p) => applyXP(p, isoToday(), 0, "system.migrate", { from: migrated.fromVersion, to: CURRENT_SCHEMA_VERSION }),
-      true
-    )
+  const up = await upsertLifeStateBackup(client, next)
+  if (up.ok) {
+    store.set((s) => ({
+      ...s,
+      cloudSync: "synced",
+      cloudLastSyncedAt: Date.now(),
+      cloudSyncMessage: null,
+    }))
+  } else {
+    store.set((s) => ({
+      ...s,
+      cloudSync: "error",
+      cloudSyncMessage: up.message ?? "Could not save to Supabase",
+    }))
   }
+  await writeCache(driver, next)
 }
 
 export function useLifeStore<T>(
@@ -405,14 +382,12 @@ export function useLifeDerived() {
         bestStreak: ensured.gamification.bestStreak,
         perfectDays: ensured.gamification.perfectDays,
         driver: s.driver,
-        hydrated: s.hydrated,
         saving: s.saving,
         lastSavedAt: s.lastSavedAt,
         error: s.error,
         cloudAuth: s.cloudAuth,
         cloudSync: s.cloudSync,
         cloudSyncMessage: s.cloudSyncMessage,
-        cloudRealtime: s.cloudRealtime,
         cloudLastSyncedAt: s.cloudLastSyncedAt,
       }
     },
@@ -424,7 +399,7 @@ export function actions() {
   return {
     ensureToday() {
       const today = isoToday()
-      setState((s) => ensureDay(s, today))
+      setState((s) => ensureDay(finalizeHeatmapDays(s), today))
     },
     toggleTodayTask(id: TodayTaskId, value?: boolean) {
       const day = isoToday()
@@ -593,8 +568,10 @@ export function actions() {
         out = updateStreakAfterCheckin(out, day, wasDone, perfectDay)
 
         const insight = insightForDay(out, day)
+        const heatScore = Math.max(0, Math.min(100, Math.round(scored)))
         return {
           ...out,
+          heatmap: { ...(out.heatmap ?? {}), [day]: { status: "fire" as const, score: heatScore } },
           daily: {
             ...out.daily,
             [day]: {
@@ -643,7 +620,6 @@ export function actions() {
 }
 
 export function LifeHydrator({ children }: { children: React.ReactNode }) {
-  const hydrated = useLifeStore((s) => s.hydrated)
   React.useEffect(() => {
     void hydrateLifeStore()
   }, [])
@@ -659,11 +635,8 @@ export function LifeHydrator({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload)
       document.removeEventListener("visibilitychange", onVisibility)
-      realtimeCleanup?.()
-      realtimeCleanup = null
+      if (retryAfterFailTimer) window.clearTimeout(retryAfterFailTimer)
     }
   }, [])
-  if (!hydrated) return null
   return <>{children}</>
 }
-

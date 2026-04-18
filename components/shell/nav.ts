@@ -8,6 +8,7 @@ import {
   Cpu,
   Gauge,
   Goal,
+  Grid3x3,
   LayoutGrid,
   LayoutDashboard,
   ListTodo,
@@ -24,6 +25,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/today", label: "Today", icon: ListTodo },
+  { href: "/heatmap", label: "Heatmap", icon: Grid3x3 },
   { href: "/checkin", label: "Check-In", icon: ClipboardCheck },
   { href: "/dsa", label: "DSA", icon: Cpu },
   { href: "/angular", label: "Angular", icon: BookOpen },

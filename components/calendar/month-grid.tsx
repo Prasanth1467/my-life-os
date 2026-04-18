@@ -54,9 +54,14 @@ export function MonthGrid({
   for (let d = 1; d <= totalDays; d++) {
     const dd = new Date(month.getFullYear(), month.getMonth(), d)
     const day = iso(dd)
-    const raw = state.daily[day]?.status ?? "ongoing"
-    const status: DayStatus =
-      raw === "ongoing" && compareISO(day, today) === -1 ? "missed" : raw
+    const heat = state.heatmap?.[day]
+    let status: DayStatus
+    if (heat?.status === "fire") status = "done"
+    else if (heat?.status === "miss") status = "missed"
+    else {
+      const raw = state.daily[day]?.status ?? "ongoing"
+      status = raw === "ongoing" && compareISO(day, today) === -1 ? "missed" : raw
+    }
     cells.push({ key: day, label: String(d), day, status })
   }
   while (cells.length % 7 !== 0) cells.push({ key: `t${cells.length}`, label: "", status: "empty" })

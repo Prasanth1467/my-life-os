@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Download, Flame, Save, Upload, User, Zap } from "lucide-react"
+import { Download, Flame, Grid3x3, Save, Upload, User, Zap } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -59,6 +59,16 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
           <LiveClock className="rounded-md border bg-card/40 px-2.5 py-1 max-w-[190px] sm:max-w-none overflow-hidden text-ellipsis" />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon-sm" asChild>
+                <Link href="/heatmap" aria-label="Lifetime heatmap">
+                  <Grid3x3 className="size-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Lifetime heatmap</TooltipContent>
+          </Tooltip>
           {derived.cloudAuth !== "disabled" ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -75,13 +85,9 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
                   }
                 >
                   {derived.cloudSync === "syncing"
-                    ? "Syncing"
+                    ? "Saving"
                     : derived.cloudSync === "synced"
-                      ? derived.cloudRealtime === "live"
-                        ? "Synced · Live"
-                        : derived.cloudRealtime === "connecting"
-                          ? "Synced · RT…"
-                          : "Synced"
+                      ? "Synced"
                       : derived.cloudSync === "error"
                         ? "Sync error"
                         : "Idle"}
@@ -89,15 +95,9 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 {derived.cloudSync === "synced"
-                  ? derived.cloudRealtime === "live"
-                    ? "Synced — Realtime channel is live; multi-device updates apply automatically."
-                    : derived.cloudRealtime === "connecting"
-                      ? "Synced — connecting Realtime channel…"
-                      : derived.cloudRealtime === "error"
-                        ? "Synced to DB — Realtime reconnecting. Data is still saved."
-                        : "All changes are saved to Supabase."
+                  ? "Supabase holds the source of truth; IndexedDB keeps a local cache."
                   : derived.cloudSync === "syncing"
-                    ? "Writing to Supabase. Your UI stays responsive."
+                    ? "Saving to Supabase first, then local cache."
                     : derived.cloudSync === "error"
                       ? derived.cloudSyncMessage ??
                         "Check .env (or Vercel env): NEXT_PUBLIC_SUPABASE_URL and anon/publishable key; restart dev server. Enable Anonymous sign-in in Supabase."

@@ -101,7 +101,7 @@ export default function CheckInPage() {
   function dismissForToday() {
     const dismissKey = `lifeos:checkin:dismiss:${today}`
     window.sessionStorage.setItem(dismissKey, "1")
-    toast("Saved as draft", { description: "You can return anytime. Check-in won’t force-open again today." })
+    toast("Draft saved", { description: "Come back whenever you like—nothing is forced." })
     router.push("/dashboard")
   }
 
@@ -140,10 +140,10 @@ export default function CheckInPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-            <ClipboardCheck className="size-5 text-orange-400" /> Nightly Check-In
+            <ClipboardCheck className="size-5 text-orange-400" /> Optional check-in
           </div>
           <div className="text-sm text-muted-foreground">
-            This is your daily log. It autosaves as you type.
+            A soft close to the day when you want it. Everything autosaves.
           </div>
         </div>
         {!done && (
@@ -166,7 +166,7 @@ export default function CheckInPage() {
           <CardTitle className="flex items-center gap-2">
             <Moon className="size-4 text-violet-400" /> Check-In Flow
           </CardTitle>
-          <CardDescription>Draft anytime. Complete when ready.</CardDescription>
+          <CardDescription>No pressure—open this page only when it helps you.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs defaultValue="summary" value={done ? "done" : step} onValueChange={(v) => setStep(v as Step)}>
@@ -289,7 +289,7 @@ export default function CheckInPage() {
                 Save draft & exit
               </Button>
               <div className="mt-2 text-xs text-muted-foreground text-center">
-                Your text is autosaved. This button just stops forced check-in redirects today.
+                Your text stays in the app. This returns you to the dashboard.
               </div>
             </div>
           )}

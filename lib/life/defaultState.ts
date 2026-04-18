@@ -19,11 +19,12 @@ export function makeDefaultState(now = new Date()): LifeStateV1 {
   const startDate = today as ISODate
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     createdAt,
     updatedAt: createdAt,
     startDate,
     paused: false,
+    heatmap: {},
     daily: {
       [today]: {
         day: today,
@@ -49,7 +50,7 @@ export function makeDefaultState(now = new Date()): LifeStateV1 {
     settings: {
       focusModeDefault: false,
       checkIn: {
-        autoOpenEnabled: true,
+        autoOpenEnabled: false,
         windowStartHour: 21,
         windowEndHour: 5,
         maxSnoozes: 2,

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Heatmap30 } from "@/components/calendar/heatmap30"
+import { LifetimeHeatmap, LifetimeHeatmapHeader } from "@/components/calendar/lifetime-heatmap"
 import { Sparkline } from "@/components/charts/sparkline"
 import { Bars } from "@/components/charts/bars"
 import { DailyQuoteHero } from "@/components/quotes/daily-quote-hero"
@@ -40,17 +41,17 @@ export default function DashboardPage() {
     const sm = state.daily[today]?.smokeCount ?? 0
     const goal = smokeGoalForDay(state, today)
     if (derived.progress < 40) {
-      alerts.push({ tone: "danger", title: "Execution risk", body: "You’re below 40% today. Finish one task now to restart momentum." })
+      alerts.push({ tone: "danger", title: "Execution risk", body: "You’re below 40% today. Finish one task when you can to restart momentum." })
     } else if (derived.progress < 80) {
-      alerts.push({ tone: "warning", title: "Close the day", body: "You’re not done yet. Focus Mode + one-click wins." })
+      alerts.push({ tone: "warning", title: "Close the day", body: "You’re not done yet. Focus Mode and one-click wins still help." })
     } else {
-      alerts.push({ tone: "success", title: "Winning today", body: "Protect it: complete the remaining tasks and lock the check-in." })
+      alerts.push({ tone: "success", title: "Winning today", body: "Strong execution today. Optional check-in can capture the win whenever you want." })
     }
     if (sm > goal) {
       alerts.push({ tone: "danger", title: "Smoke overflow", body: `You’re over goal by ${sm - goal}. Replace next craving with a 2-minute walk.` })
     }
     if (state.gamification.streak === 0) {
-      alerts.push({ tone: "warning", title: "No active streak", body: "Tonight’s check-in starts the streak. Make it non-negotiable." })
+      alerts.push({ tone: "warning", title: "No active streak", body: "A check-in on a solid day starts the streak—only when you choose to." })
     }
     return alerts
   }, [derived.progress, state, today])
@@ -142,11 +143,24 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Lifetime heatmap</CardTitle>
+            <CardDescription>Check-in days vs missed days since your start date.</CardDescription>
+          </div>
+          <LifetimeHeatmapHeader />
+        </CardHeader>
+        <CardContent>
+          <LifetimeHeatmap state={state} maxWeeks={32} />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>30-Day Heatmap</CardTitle>
-            <CardDescription>Done vs missed. No stories, just data.</CardDescription>
+            <CardDescription>Recent check-ins and misses at a glance.</CardDescription>
           </CardHeader>
           <CardContent>
             <Heatmap30 state={state} />

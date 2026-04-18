@@ -30,7 +30,7 @@ export function isSupabaseBrowserConfigured(): boolean {
   return Boolean(getSupabaseUrl() && getSupabaseAnonKey())
 }
 
-/** Server/middleware: hint when env is missing (no secrets). */
+/** Hint when public Supabase env is missing (no secrets). */
 export function supabaseEnvHint(): string | undefined {
   if (isSupabaseBrowserConfigured()) return undefined
   if (!getSupabaseUrl()) return "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL"

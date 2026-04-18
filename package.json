@@ -13,8 +13,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "supabase:push": "npx supabase db push",
-    "cron:test": "node --env-file=.env scripts/trigger-cron.mjs"
+    "supabase:push": "npx supabase db push"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

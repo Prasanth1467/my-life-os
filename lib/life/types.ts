@@ -126,13 +126,24 @@ export type Settings = {
   }
 }
 
+/** Check-in outcome for a calendar day (GitHub-style heatmap). */
+export type HeatmapStatus = "fire" | "miss"
+
+export type HeatmapCell = {
+  status: HeatmapStatus
+  /** 0–100 intensity for display */
+  score: number
+}
+
 export type LifeStateV1 = {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   createdAt: number
   updatedAt: number
   startDate: ISODate
   paused: boolean
   daily: Record<ISODate, Daily>
+  /** Optional on legacy v1; required after migration to v2. */
+  heatmap?: Record<ISODate, HeatmapCell>
   dsaDone: Record<string, boolean>
   angularDone: Record<string, boolean>
   goals: Goal[]

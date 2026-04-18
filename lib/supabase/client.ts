@@ -9,9 +9,6 @@ export function createClient() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or publishable/anon key")
   }
   return createBrowserClient(url, key, {
-    realtime: {
-      params: { eventsPerSecond: 30 },
-    },
     auth: {
       persistSession: true,
       autoRefreshToken: true,

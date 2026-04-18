@@ -16,6 +16,13 @@ export function diffDaysISO(a: ISODate, b: ISODate): number {
   return Math.round((da - db) / 86_400_000)
 }
 
+/** Lexicographic compare (works for YYYY-MM-DD). Returns -1 | 0 | 1. */
+export function compareISODate(a: ISODate, b: ISODate): number {
+  if (a < b) return -1
+  if (a > b) return 1
+  return 0
+}
+
 export function isTimeInWindow(
   now: Date,
   windowStartHour: number,

@@ -13,8 +13,12 @@ export type DisciplineStats = {
   onBestRun: boolean
 }
 
-function isDone(st: LifeStateV1, day: ISODate) {
-  return st.daily[day]?.status === "done"
+/** "Done" = check-in fire day (heatmap), with legacy fallback to stored check-in. */
+function isFireDay(st: LifeStateV1, day: ISODate) {
+  const h = st.heatmap?.[day]
+  if (h?.status === "fire") return true
+  if (h?.status === "miss") return false
+  return Boolean(st.daily[day]?.checkIn)
 }
 
 export function computeDisciplineStats(st: LifeStateV1, today = isoToday()): DisciplineStats {
@@ -23,22 +27,21 @@ export function computeDisciplineStats(st: LifeStateV1, today = isoToday()): Dis
   let doneDays = 0
   let missedDays = 0
 
-  // count from startDate to yesterday as "completed or wasted"
   for (let i = 0; i < totalDays - 1; i++) {
     const d = addDaysISO(st.startDate, i)
-    if (isDone(st, d)) doneDays++
+    if (isFireDay(st, d)) doneDays++
     else missedDays++
   }
 
   const daysWasted = missedDays
-  const consistencyPct = Math.round((doneDays / Math.max(1, totalDays - 1)) * 100)
+  const denom = Math.max(1, totalDays - 1)
+  const consistencyPct = Math.round((doneDays / denom) * 100)
 
-  // last break message: find last run end (a done run followed by non-done)
   let lastBreakAfterDays: number | null = null
   let run = 0
   for (let i = 0; i < totalDays - 1; i++) {
     const d = addDaysISO(st.startDate, i)
-    if (isDone(st, d)) {
+    if (isFireDay(st, d)) {
       run++
       continue
     }
@@ -62,4 +65,3 @@ export function computeDisciplineStats(st: LifeStateV1, today = isoToday()): Dis
     onBestRun,
   }
 }
-

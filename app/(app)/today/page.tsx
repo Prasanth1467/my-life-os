@@ -140,7 +140,7 @@ export default function TodayPage() {
 
       {focus && (
         <div className="text-center text-xs text-muted-foreground">
-          Focus Mode is on. Only tasks remain. Finish, then check-in.
+          Focus Mode is on. Only tasks remain—check in later if you want.
         </div>
       )}
 
@@ -149,12 +149,14 @@ export default function TodayPage() {
           <DialogHeader>
             <DialogTitle>Execution Complete</DialogTitle>
             <DialogDescription>
-              {smoke <= smokeGoal ? "Perfect day potential. Lock it with check-in." : "Tasks done. Now protect the win."}
+              {smoke <= smokeGoal
+                ? "Great momentum. Optional check-in can capture it tonight."
+                : "Tasks done for now—adjust smoke when you can."}
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-xl border p-4 text-sm">
             <div className="font-semibold">Completion satisfaction</div>
-            <div className="mt-1 text-muted-foreground">Your nervous system will try to negotiate. Don’t listen. Finish check-in.</div>
+            <div className="mt-1 text-muted-foreground">Rest or reflect—no required next step.</div>
           </div>
           <DialogFooter>
             <Button onClick={() => setCelebrateOpen(false)}>Continue</Button>

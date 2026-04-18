@@ -2,34 +2,44 @@
 
 import * as React from "react"
 
-import { addDaysISO, isoToday } from "@/lib/life/dates"
+import { addDaysISO, compareISODate, isoToday } from "@/lib/life/dates"
 import type { ISODate, LifeStateV1 } from "@/lib/life/types"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-function compareISO(a: ISODate, b: ISODate) {
-  return a < b ? -1 : a > b ? 1 : 0
+function mondayIndex(iso: ISODate) {
+  const d = new Date(iso + "T12:00:00.000Z").getUTCDay()
+  return (d + 6) % 7
 }
 
-function faceFor(status: "done" | "missed" | "ongoing" | "paused") {
-  if (status === "done") return "🔥"
-  if (status === "missed") return "😭"
-  if (status === "paused") return "⏸"
+type HStatus = "fire" | "miss" | "neutral"
+
+function heatStatus(state: LifeStateV1, day: ISODate, today: ISODate): HStatus {
+  const h = state.heatmap?.[day]
+  if (h?.status === "fire") return "fire"
+  if (h?.status === "miss") return "miss"
+  if (state.daily[day]?.checkIn) return "fire"
+  if (compareISODate(day, today) < 0) return "miss"
+  return "neutral"
+}
+
+function face(s: HStatus) {
+  if (s === "fire") return "🔥"
+  if (s === "miss") return "😢"
   return "⚪"
 }
 
-function ringFor(status: "done" | "missed" | "ongoing" | "paused") {
-  if (status === "done") return "ring-emerald-400/30"
-  if (status === "missed") return "ring-rose-400/35"
-  if (status === "paused") return "ring-zinc-400/20"
+function ringFor(s: HStatus) {
+  if (s === "fire") return "ring-emerald-400/30"
+  if (s === "miss") return "ring-rose-400/35"
   return "ring-orange-400/20"
 }
 
-function bgFor(status: "done" | "missed" | "ongoing" | "paused") {
-  if (status === "done") return "bg-emerald-500/10"
-  if (status === "missed") return "bg-rose-500/10"
-  if (status === "paused") return "bg-zinc-500/10"
-  return "bg-orange-500/10"
+function bgFor(s: HStatus, score: number) {
+  const t = Math.max(0, Math.min(1, score / 100))
+  if (s === "fire") return `rgba(16, 185, 129, ${0.08 + t * 0.4})`
+  if (s === "miss") return `rgba(244, 63, 94, ${0.08 + (1 - t) * 0.25})`
+  return "rgba(249, 115, 22, 0.08)"
 }
 
 export function Heatmap30({ state, className }: { state: LifeStateV1; className?: string }) {
@@ -40,12 +50,8 @@ export function Heatmap30({ state, className }: { state: LifeStateV1; className?
     return out
   }, [today])
 
-  // Arrange into a calendar-like grid (Mon..Sun)
-  const weekday = (iso: ISODate) => new Date(iso).getDay() // 0..6 (Sun..Sat)
-  const monIndex = (d: number) => (d + 6) % 7 // Mon=0..Sun=6
-
   const start = days[0]
-  const startOffset = monIndex(weekday(start)) // leading blanks before first day
+  const startOffset = mondayIndex(start)
   const cells: Array<{ key: string; day?: ISODate }> = []
   for (let i = 0; i < startOffset; i++) cells.push({ key: `p${i}` })
   for (const d of days) cells.push({ key: d, day: d })
@@ -67,33 +73,32 @@ export function Heatmap30({ state, className }: { state: LifeStateV1; className?
               return <div key={c.key} className="h-9 rounded-lg border border-transparent" />
             }
 
-            const raw = state.daily[c.day]?.status ?? "ongoing"
-            const status =
-              raw === "ongoing" && compareISO(c.day, today) === -1 ? ("missed" as const) : (raw as "done" | "missed" | "ongoing" | "paused")
-
-            const score = state.daily[c.day]?.score ?? 0
+            const hs = heatStatus(state, c.day, today)
+            const score = state.heatmap?.[c.day]?.score ?? state.daily[c.day]?.score ?? 0
             const smoke = state.daily[c.day]?.smokeCount ?? 0
 
             return (
               <Tooltip key={c.key}>
                 <TooltipTrigger asChild>
                   <button
+                    type="button"
                     className={cn(
                       "h-9 rounded-xl border bg-card/30 text-sm transition-colors",
                       "hover:bg-muted/50",
                       "ring-1",
-                      ringFor(status),
-                      bgFor(status)
+                      ringFor(hs)
                     )}
-                    aria-label={`${c.day} ${status}`}
+                    style={{ backgroundColor: bgFor(hs, score) }}
+                    aria-label={`${c.day} ${hs}`}
                   >
-                    <span className="grid place-items-center">{faceFor(status)}</span>
+                    <span className="grid place-items-center">{face(hs)}</span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <div className="text-xs font-semibold">{c.day}</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Status: <span className="text-foreground">{status}</span> · Score: <span className="text-foreground">{score}</span> · Smoke:{" "}
+                    {hs === "fire" ? "Check-in" : hs === "miss" ? "Missed" : "In progress"} · Score:{" "}
+                    <span className="text-foreground">{Math.round(score)}</span> · Smoke:{" "}
                     <span className="text-foreground">{smoke}</span>
                   </div>
                 </TooltipContent>
@@ -105,4 +110,3 @@ export function Heatmap30({ state, className }: { state: LifeStateV1; className?
     </TooltipProvider>
   )
 }
-
