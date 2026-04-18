@@ -587,8 +587,6 @@ export function actions() {
         const progress = calcProgressPct(ensured, day)
         const wasDone = progress === 100
         const perfectDay = wasDone && input.smokeCount <= ensured.settings.smoke.baselinePerDay
-        const xpGained = 0
-
         let out: LifeStateV1 = ensured
         out = applyXP(out, day, 0, "checkin.complete", { score: scored, win: input.mandatoryWin })
         out = updateStreakAfterCheckin(out, day, wasDone, perfectDay)
@@ -615,7 +613,7 @@ export function actions() {
                 snoozesUsed: input.snoozesUsed,
                 score: scored,
                 insight,
-                xpGained,
+                xpGained: 0,
               },
               status: wasDone ? "done" : out.daily[day].status,
             },
