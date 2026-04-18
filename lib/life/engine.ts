@@ -114,10 +114,11 @@ export function deriveStatusForDay(state: LifeStateV1, day = isoToday()): LifeSt
   return { ...state, daily: { ...state.daily, [day]: { ...d, status } } }
 }
 
-export function applyXP(state: LifeStateV1, day: ISODate, xpDelta: number, type: LifeEvent["type"], meta?: LifeEvent["meta"]): LifeStateV1 {
+/** XP accumulation is disabled (daily-first UX). Events are still logged with xpDelta 0. */
+export function applyXP(state: LifeStateV1, day: ISODate, _xpDelta: number, type: LifeEvent["type"], meta?: LifeEvent["meta"]): LifeStateV1 {
   const now = Date.now()
-  const ev: LifeEvent = { id: uid("ev"), at: now, type, day, meta, xpDelta }
-  const xp = Math.max(0, state.gamification.xp + xpDelta)
+  const ev: LifeEvent = { id: uid("ev"), at: now, type, day, meta, xpDelta: 0 }
+  const xp = Math.max(0, state.gamification.xp)
   const lvl = computeLevel(xp)
   return {
     ...state,

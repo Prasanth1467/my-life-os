@@ -1,11 +1,9 @@
-export type QuoteCategory = "discipline" | "pain_struggle" | "comeback" | "ambition_growth" | "spiritual_grounding"
+export type QuoteLane = "krishna" | "luffy" | "anime_discipline" | "long_term" | "discipline"
 
-export type DailyQuote = {
-  id: number // 1..365
-  category: QuoteCategory
+export type CuratedQuote = {
+  id: string
+  lane: QuoteLane
   text: string
-  author: string
-  source: string
-  ref: string | null
+  attribution: string
+  source?: string | null
 }
-

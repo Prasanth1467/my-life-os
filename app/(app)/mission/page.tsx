@@ -56,7 +56,7 @@ export default function MissionPage() {
 
           <div className="grid gap-3 md:grid-cols-4">
             <Stat label="Day on mission" value={String(dayNum)} sub="/ 450" />
-            <Stat label="XP" value={String(derived.xp)} sub="total" />
+            <Stat label="Today score" value={String(derived.score)} sub="/ 100" />
             <Stat label="Streak" value={String(derived.streak)} sub="days" />
             <Stat label="Today smoke" value={String(smoke)} sub="count" />
           </div>

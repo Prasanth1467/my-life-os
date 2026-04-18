@@ -17,7 +17,7 @@ export default function HeatmapPage() {
           <Grid3x3 className="size-6 text-orange-400" /> Lifetime heatmap
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          One square per day since you started. 🔥 means you logged a check-in; 😢 means the day closed without one.
+          One square per day since you started. Green = check-in logged; rose = missed.
         </p>
       </div>
 

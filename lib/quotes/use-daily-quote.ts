@@ -2,24 +2,23 @@
 
 import * as React from "react"
 
-import type { DailyQuote } from "@/lib/quotes/types"
-import { getQuoteOfDay } from "@/lib/quotes/quote-cycle"
+import { getQuoteForCalendarDay } from "@/lib/quotes/pick"
+import type { CuratedQuote } from "@/lib/quotes/types"
 
-export function useDailyQuote(dayNumber: number) {
-  const [quote, setQuote] = React.useState<DailyQuote | null>(null)
+export function useDailyQuote(isoDate: string) {
+  const [quote, setQuote] = React.useState<CuratedQuote | null>(null)
 
   React.useEffect(() => {
     let alive = true
     ;(async () => {
-      const mod = (await import("@/lib/quotes/quotes365.json")) as { default: DailyQuote[] }
-      const q = getQuoteOfDay({ quotes: mod.default, dayNumber })
+      const mod = (await import("@/lib/quotes/curated.json")) as { default: CuratedQuote[] }
+      const q = getQuoteForCalendarDay(isoDate, mod.default)
       if (alive) setQuote(q)
     })()
     return () => {
       alive = false
     }
-  }, [dayNumber])
+  }, [isoDate])
 
   return quote
 }
-

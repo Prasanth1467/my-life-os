@@ -1,46 +1,43 @@
 "use client"
 
-import * as React from "react"
-
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { DailyQuote } from "@/lib/quotes/types"
+import type { CuratedQuote, QuoteLane } from "@/lib/quotes/types"
 
-const categoryLabel: Record<DailyQuote["category"], string> = {
+const laneLabel: Record<QuoteLane, string> = {
+  krishna: "Krishna · Gita",
+  luffy: "Luffy",
+  anime_discipline: "Anime · discipline",
+  long_term: "Long-term",
   discipline: "Discipline",
-  pain_struggle: "Pain & Struggle",
-  comeback: "Comeback",
-  ambition_growth: "Ambition & Growth",
-  spiritual_grounding: "Spiritual Grounding",
 }
 
-export function DailyQuoteHero({ quote, className }: { quote: DailyQuote | null; className?: string }) {
+export function DailyQuoteHero({ quote, className }: { quote: CuratedQuote | null; className?: string }) {
   if (!quote) return null
 
   return (
-    <section className={cn("rounded-2xl border bg-card p-5 md:p-7", "animate-in fade-in-0 slide-in-from-bottom-2", className)}>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <Badge variant="secondary">{categoryLabel[quote.category]}</Badge>
-        {quote.ref ? (
-          <Badge variant="outline">{quote.ref}</Badge>
-        ) : null}
+    <section
+      className={cn(
+        "rounded-xl border border-border/80 bg-card/80 p-4 md:p-5",
+        "animate-in fade-in-0 slide-in-from-bottom-2",
+        className
+      )}
+    >
+      <div className="flex justify-center">
+        <Badge variant="secondary" className="text-[11px] font-normal tracking-wide">
+          {laneLabel[quote.lane]}
+        </Badge>
       </div>
 
-      <div className="mt-4 text-center">
-        <div
-          className={cn(
-            "text-balance font-extrabold tracking-tight",
-            "text-3xl md:text-5xl",
-            "bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-transparent"
-          )}
-        >
+      <blockquote className="mt-3 text-center">
+        <p className="text-balance text-lg font-semibold leading-snug tracking-tight text-foreground md:text-2xl">
           “{quote.text}”
-        </div>
-        <div className="mt-3 text-sm text-muted-foreground">
-          — {quote.author}
-        </div>
-      </div>
+        </p>
+        <footer className="mt-2 text-xs text-muted-foreground md:text-sm">
+          — {quote.attribution}
+          {quote.source ? <span className="text-muted-foreground/80"> · {quote.source}</span> : null}
+        </footer>
+      </blockquote>
     </section>
   )
 }
-

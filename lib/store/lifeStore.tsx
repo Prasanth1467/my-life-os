@@ -350,6 +350,33 @@ export async function hydrateLifeStore(): Promise<void> {
   await writeCache(driver, next)
 }
 
+/** Pull newer state from Supabase when another tab/device saved. */
+export async function refetchLifeStateFromCloudIfNewer(): Promise<void> {
+  if (!isSupabaseBrowserConfigured()) return
+  const client = createClient()
+  const auth = await ensureAnonymousSession(client)
+  if (auth.status !== "ready") return
+  const remote = await fetchLifeStatePrimary(client)
+  if (!remote.ok || !remote.state) return
+  const local = store.get().state
+  if (remote.state.updatedAt <= local.updatedAt) return
+  const driver = store.get().driver
+  let next = remote.state
+  if (next.schemaVersion !== CURRENT_SCHEMA_VERSION) {
+    next = { ...next, schemaVersion: CURRENT_SCHEMA_VERSION }
+  }
+  next = finalizeHeatmapDays(next)
+  store.set((s) => ({
+    ...s,
+    state: next,
+    error: null,
+    cloudSync: "synced",
+    cloudLastSyncedAt: Date.now(),
+    cloudSyncMessage: null,
+  }))
+  await writeCache(driver, next)
+}
+
 export function useLifeStore<T>(
   selector: (s: LifeStoreState) => T,
   eq: (a: T, b: T) => boolean = Object.is
@@ -408,7 +435,6 @@ export function actions() {
         const d = next.daily[day]
         const prev = d.todayTasks[id]
         const nextVal = value ?? !prev
-        const xpDelta = nextVal && !prev ? 10 : !nextVal && prev ? -10 : 0
         let out: LifeStateV1 = {
           ...next,
           daily: {
@@ -416,7 +442,7 @@ export function actions() {
             [day]: { ...d, todayTasks: { ...d.todayTasks, [id]: nextVal } },
           },
         }
-        out = applyXP(out, day, xpDelta, nextVal ? "task.complete" : "task.uncomplete", { task: id })
+        out = applyXP(out, day, 0, nextVal ? "task.complete" : "task.uncomplete", { task: id })
         const scored = calcTodayScore(out, day)
         out = {
           ...out,
@@ -561,10 +587,10 @@ export function actions() {
         const progress = calcProgressPct(ensured, day)
         const wasDone = progress === 100
         const perfectDay = wasDone && input.smokeCount <= ensured.settings.smoke.baselinePerDay
-        const xpGained = Math.round(scored * (wasDone ? 1.2 : 0.9))
+        const xpGained = 0
 
         let out: LifeStateV1 = ensured
-        out = applyXP(out, day, xpGained, "checkin.complete", { score: scored, win: input.mandatoryWin })
+        out = applyXP(out, day, 0, "checkin.complete", { score: scored, win: input.mandatoryWin })
         out = updateStreakAfterCheckin(out, day, wasDone, perfectDay)
 
         const insight = insightForDay(out, day)
@@ -623,20 +649,71 @@ export function LifeHydrator({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     void hydrateLifeStore()
   }, [])
+
+  const dayRef = React.useRef(isoToday())
+  React.useEffect(() => {
+    const tick = () => {
+      const t = isoToday()
+      if (t !== dayRef.current) {
+        dayRef.current = t
+        actions().ensureToday()
+        void flushSave()
+      }
+    }
+    const id = window.setInterval(tick, 60_000)
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        void flushSave()
+        return
+      }
+      tick()
+      void refetchLifeStateFromCloudIfNewer()
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [])
+
   React.useEffect(() => {
     const onBeforeUnload = () => {
       void flushSave()
     }
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") void flushSave()
-    }
     window.addEventListener("beforeunload", onBeforeUnload)
-    document.addEventListener("visibilitychange", onVisibility)
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload)
-      document.removeEventListener("visibilitychange", onVisibility)
       if (retryAfterFailTimer) window.clearTimeout(retryAfterFailTimer)
     }
   }, [])
+
+  React.useEffect(() => {
+    if (!isSupabaseBrowserConfigured()) return
+    const client = createClient()
+    let cancelled = false
+    let channel: ReturnType<typeof client.channel> | null = null
+    void (async () => {
+      const auth = await ensureAnonymousSession(client)
+      if (cancelled || auth.status !== "ready") return
+      const { data: userData } = await client.auth.getUser()
+      const uid = userData.user?.id
+      if (!uid) return
+      channel = client
+        .channel(`life_state_rt:${uid}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "life_state", filter: `id=eq.${uid}` },
+          () => {
+            void refetchLifeStateFromCloudIfNewer()
+          }
+        )
+        .subscribe()
+    })()
+    return () => {
+      cancelled = true
+      if (channel) void client.removeChannel(channel)
+    }
+  }, [])
+
   return <>{children}</>
 }

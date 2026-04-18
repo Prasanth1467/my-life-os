@@ -1,0 +1,226 @@
+[
+  {
+    "id": "k1",
+    "lane": "krishna",
+    "text": "You have a right to action, never to its fruits. Let not the fruits of action be your motive, nor your attachment to inaction.",
+    "attribution": "Bhagavad Gita (Krishna to Arjuna)",
+    "source": "2.47"
+  },
+  {
+    "id": "k2",
+    "lane": "krishna",
+    "text": "When meditation is mastered, the mind is unwavering like the flame of a lamp in a windless place.",
+    "attribution": "Bhagavad Gita",
+    "source": "6.19"
+  },
+  {
+    "id": "k3",
+    "lane": "krishna",
+    "text": "Lift yourself by yourself; do not let yourself sink. For the self is its own friend, and the self is its own enemy.",
+    "attribution": "Bhagavad Gita",
+    "source": "6.5"
+  },
+  {
+    "id": "k4",
+    "lane": "krishna",
+    "text": "The disciplined mind brings wisdom; the restless mind is scattered.",
+    "attribution": "Bhagavad Gita (theme)",
+    "source": "6"
+  },
+  {
+    "id": "k5",
+    "lane": "krishna",
+    "text": "Better is one’s own duty, though imperfect, than the duty of another well performed.",
+    "attribution": "Bhagavad Gita",
+    "source": "3.35"
+  },
+  {
+    "id": "k6",
+    "lane": "krishna",
+    "text": "From whatever you set your heart on, you will be bound; be free from all pairs of opposites and be steady in yoga.",
+    "attribution": "Bhagavad Gita (theme)",
+    "source": "2"
+  },
+  {
+    "id": "k7",
+    "lane": "krishna",
+    "text": "He who sees inaction in action and action in inaction—he is wise among people.",
+    "attribution": "Bhagavad Gita",
+    "source": "4.18"
+  },
+  {
+    "id": "k8",
+    "lane": "krishna",
+    "text": "The senses roam, but bring them back to the self, like horses trained by a charioteer.",
+    "attribution": "Bhagavad Gita (theme)",
+    "source": "2.60–61"
+  },
+  {
+    "id": "l1",
+    "lane": "luffy",
+    "text": "If I give up now, I’ll regret it for the rest of my life.",
+    "attribution": "Monkey D. Luffy",
+    "source": "One Piece"
+  },
+  {
+    "id": "l2",
+    "lane": "luffy",
+    "text": "I don’t have to win, but I won’t run away.",
+    "attribution": "Monkey D. Luffy",
+    "source": "One Piece"
+  },
+  {
+    "id": "l3",
+    "lane": "luffy",
+    "text": "Power isn’t determined by your size, but the size of your heart and dreams.",
+    "attribution": "Monkey D. Luffy",
+    "source": "One Piece"
+  },
+  {
+    "id": "l4",
+    "lane": "luffy",
+    "text": "Being alone is painful. But I’ll get stronger.",
+    "attribution": "Monkey D. Luffy",
+    "source": "One Piece"
+  },
+  {
+    "id": "l5",
+    "lane": "luffy",
+    "text": "I decided to be Pirate King. I don’t care if I die for it.",
+    "attribution": "Monkey D. Luffy",
+    "source": "One Piece"
+  },
+  {
+    "id": "l6",
+    "lane": "luffy",
+    "text": "You want to keep everyone safe? Then get stronger.",
+    "attribution": "Monkey D. Luffy (theme)",
+    "source": "One Piece"
+  },
+  {
+    "id": "a1",
+    "lane": "anime_discipline",
+    "text": "It’s not the goal that matters—it’s the discipline to keep moving toward it.",
+    "attribution": "Vegapunk (theme)",
+    "source": "One Piece"
+  },
+  {
+    "id": "a2",
+    "lane": "anime_discipline",
+    "text": "A genius? No, I’m not. I just work hard.",
+    "attribution": "Rock Lee",
+    "source": "Naruto"
+  },
+  {
+    "id": "a3",
+    "lane": "anime_discipline",
+    "text": "The stronger you get, the heavier your responsibilities become.",
+    "attribution": "Kakashi (theme)",
+    "source": "Naruto"
+  },
+  {
+    "id": "a4",
+    "lane": "anime_discipline",
+    "text": "If you don’t like your fate, don’t accept it. Instead, have the courage to change it.",
+    "attribution": "Natsu Dragneel (theme)",
+    "source": "Fairy Tail"
+  },
+  {
+    "id": "a5",
+    "lane": "anime_discipline",
+    "text": "Pain is your ally—it tells you you’re still in the fight.",
+    "attribution": "All Might (theme)",
+    "source": "My Hero Academia"
+  },
+  {
+    "id": "a6",
+    "lane": "anime_discipline",
+    "text": "Train until the weak voice in your head goes quiet.",
+    "attribution": "Vegeta (theme)",
+    "source": "Dragon Ball"
+  },
+  {
+    "id": "lt1",
+    "lane": "long_term",
+    "text": "The future belongs to those who prepare in the dark while others sleep.",
+    "attribution": "Proverb (discipline)",
+    "source": null
+  },
+  {
+    "id": "lt2",
+    "lane": "long_term",
+    "text": "You do not rise to the level of your goals. You fall to the level of your systems.",
+    "attribution": "James Clear",
+    "source": "Atomic Habits"
+  },
+  {
+    "id": "lt3",
+    "lane": "long_term",
+    "text": "Small daily improvements are the key to staggering long-term results.",
+    "attribution": "Darren Hardy (theme)",
+    "source": null
+  },
+  {
+    "id": "lt4",
+    "lane": "long_term",
+    "text": "Patience is not passive waiting. Patience is active endurance.",
+    "attribution": "Discipline teaching",
+    "source": null
+  },
+  {
+    "id": "lt5",
+    "lane": "long_term",
+    "text": "Compound interest is the eighth wonder of the world. Consistency unlocks it.",
+    "attribution": "Attributed to Einstein (popular)",
+    "source": null
+  },
+  {
+    "id": "lt6",
+    "lane": "long_term",
+    "text": "The best time to plant a tree was twenty years ago. The second best time is now.",
+    "attribution": "Proverb",
+    "source": null
+  },
+  {
+    "id": "d1",
+    "lane": "discipline",
+    "text": "Discipline is remembering what you want.",
+    "attribution": "David Campbell",
+    "source": null
+  },
+  {
+    "id": "d2",
+    "lane": "discipline",
+    "text": "Amateurs wait for motivation. Professionals build systems.",
+    "attribution": "Common maxim",
+    "source": null
+  },
+  {
+    "id": "d3",
+    "lane": "discipline",
+    "text": "You can’t cheat the grind—it knows how much you’ve invested.",
+    "attribution": "Training maxim",
+    "source": null
+  },
+  {
+    "id": "d4",
+    "lane": "discipline",
+    "text": "Self-respect is built in small kept promises to yourself.",
+    "attribution": "Discipline teaching",
+    "source": null
+  },
+  {
+    "id": "d5",
+    "lane": "discipline",
+    "text": "The cost of discipline is always less than the price of regret.",
+    "attribution": "Unknown",
+    "source": null
+  },
+  {
+    "id": "d6",
+    "lane": "discipline",
+    "text": "Do the hard thing first. Freedom follows execution.",
+    "attribution": "Life OS",
+    "source": null
+  }
+]

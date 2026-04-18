@@ -1,14 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { Download, Flame, Grid3x3, Save, Upload, User, Zap } from "lucide-react"
+import { Download, Flame, Grid3x3, Save, Upload, User } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
 import { actions, useLifeDerived } from "@/lib/store/lifeStore"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { useLifeStore } from "@/lib/store/lifeStore"
 import { dayNumber } from "@/lib/life/engine"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -30,7 +29,6 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const a = React.useMemo(() => actions(), [])
   const derived = useLifeDerived()
   const life = useLifeStore((s) => s.state)
-  const levelPct = Math.round((derived.levelCurrent / Math.max(1, derived.levelNext)) * 100)
   const dayNum = dayNumber(life, derived.today)
 
   return (
@@ -46,14 +44,8 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         <div className="hidden md:flex items-center gap-2">
           <Badge variant="secondary">Day {dayNum}</Badge>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <Zap className="size-4 text-orange-400" />
-          <div className="text-xs text-muted-foreground whitespace-nowrap">
-            XP {derived.xp} · L{derived.level}
-          </div>
-          <div className="hidden sm:block w-[120px] md:w-[220px]">
-            <Progress value={levelPct} />
-          </div>
+        <div className="hidden min-w-0 sm:block text-xs text-muted-foreground truncate">
+          Today · score {derived.score} · {derived.progress}%
         </div>
         <div className="flex flex-1 justify-center min-w-0">
           <LiveClock className="rounded-md border bg-card/40 px-2.5 py-1 max-w-[190px] sm:max-w-none overflow-hidden text-ellipsis" />
@@ -147,9 +139,6 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/calendar">Calendar</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/intelligence">Intelligence</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

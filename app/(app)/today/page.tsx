@@ -13,16 +13,16 @@ import { cn } from "@/lib/utils"
 import { actions, useLifeDerived, useLifeStore } from "@/lib/store/lifeStore"
 import type { TodayTaskId } from "@/lib/life/types"
 
-type Task = { id: TodayTaskId; label: string; xp: number; tone: "orange" | "violet" | "emerald" }
+type Task = { id: TodayTaskId; label: string; tone: "orange" | "violet" | "emerald" }
 
 const TASKS: Task[] = [
-  { id: "angular", label: "Angular execution", xp: 10, tone: "orange" },
-  { id: "dsa", label: "DSA execution", xp: 10, tone: "violet" },
-  { id: "walk", label: "Walk 20 minutes", xp: 10, tone: "emerald" },
-  { id: "water", label: "Water target", xp: 10, tone: "emerald" },
-  { id: "sleep", label: "Sleep discipline", xp: 10, tone: "emerald" },
-  { id: "phone", label: "Phone control", xp: 10, tone: "emerald" },
-  { id: "nosmoke", label: "No smoke (or within goal)", xp: 10, tone: "emerald" },
+  { id: "angular", label: "Angular execution", tone: "orange" },
+  { id: "dsa", label: "DSA execution", tone: "violet" },
+  { id: "walk", label: "Walk 20 minutes", tone: "emerald" },
+  { id: "water", label: "Water target", tone: "emerald" },
+  { id: "sleep", label: "Sleep discipline", tone: "emerald" },
+  { id: "phone", label: "Phone control", tone: "emerald" },
+  { id: "nosmoke", label: "No smoke (or within goal)", tone: "emerald" },
 ]
 
 function toneClass(t: Task["tone"]) {
@@ -59,9 +59,9 @@ export default function TodayPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-2xl font-extrabold tracking-tight flex items-center gap-2">
-            <ListChecks className="size-5 text-orange-400" /> Today Execution
+            <ListChecks className="size-5 text-orange-400" /> Today
           </div>
-          <div className="text-sm text-muted-foreground">Zero friction. One click. Instant feedback.</div>
+          <div className="text-sm text-muted-foreground">One tap per task. Saved automatically.</div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline">Progress {derived.progress}%</Badge>
@@ -74,8 +74,8 @@ export default function TodayPage() {
 
       <Card className={cn(focus && "hidden")}>
         <CardHeader>
-          <CardTitle>Live Progress</CardTitle>
-          <CardDescription>Instant updates + autosave. No refresh needed.</CardDescription>
+          <CardTitle>Progress</CardTitle>
+          <CardDescription>Autosave to device and cloud when configured.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className={cn("rounded-xl p-3", derived.progress === 100 && "border border-emerald-500/25 bg-emerald-500/5")}>
@@ -103,8 +103,8 @@ export default function TodayPage() {
               )}
               onClick={() => {
                 a.toggleTodayTask(t.id)
-                toast(done ? `−${t.xp} XP` : `+${t.xp} XP`, {
-                  description: done ? "Undo logged." : "Completion logged.",
+                toast(done ? "Undone" : "Saved", {
+                  description: done ? "Task unchecked." : "Task marked complete.",
                 })
               }}
             >
@@ -117,13 +117,10 @@ export default function TodayPage() {
                       <XCircle className="size-5 text-muted-foreground" />
                     )}
                     <div className="font-semibold truncate">{t.label}</div>
-                    <Badge variant="outline" className="shrink-0">
-                      <span className={cn(done && "text-emerald-400 animate-in fade-in-0 zoom-in-95")}>+{t.xp} XP</span>
-                    </Badge>
                   </div>
                   {!focus && (
                     <div className="mt-1 text-xs text-muted-foreground">
-                      Click once to {done ? "undo" : "complete"}.
+                      Tap to {done ? "undo" : "complete"}.
                     </div>
                   )}
                 </div>
@@ -166,4 +163,3 @@ export default function TodayPage() {
     </div>
   )
 }
-

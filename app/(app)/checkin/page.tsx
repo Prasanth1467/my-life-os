@@ -132,7 +132,7 @@ export default function CheckInPage() {
     },
     { label: "Score", value: `${derived.score}/100`, tone: derived.score >= 85 ? "success" : derived.score >= 50 ? "warning" : "danger" },
     { label: "Smoke", value: `${smoke}`, tone: smoke <= (st.settings.smoke.baselinePerDay ?? 20) ? "success" : "danger" },
-    { label: "XP (today)", value: `${derived.dayXp}`, tone: "outline" },
+    { label: "Streak", value: `${derived.streak} days`, tone: "outline" },
   ] as Array<{ label: string; value: string; tone: "success" | "warning" | "danger" | "outline" }>
 
   return (

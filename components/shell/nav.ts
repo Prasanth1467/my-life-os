@@ -6,10 +6,8 @@ import {
   Cigarette,
   ClipboardCheck,
   Cpu,
-  Gauge,
   Goal,
   Grid3x3,
-  LayoutGrid,
   LayoutDashboard,
   ListTodo,
   NotebookPen,
@@ -34,8 +32,5 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/analytics", label: "Analytics", icon: Activity },
   { href: "/goals", label: "Goals", icon: Goal },
   { href: "/journal", label: "Journal", icon: NotebookPen },
-  { href: "/intelligence", label: "Intelligence", icon: Gauge },
   { href: "/mission", label: "Mission", icon: Target },
-  { href: "/ui-kit", label: "UI Kit", icon: LayoutGrid },
 ]
-

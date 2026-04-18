@@ -5,10 +5,10 @@ import { Flame } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { DayStatus, ISODate, LifeStateV1 } from "@/lib/life/types"
-import { isoToday } from "@/lib/life/dates"
+import { isoToday, toISODateLocal } from "@/lib/life/dates"
 
 function iso(d: Date): ISODate {
-  return d.toISOString().slice(0, 10) as ISODate
+  return toISODateLocal(d)
 }
 
 function startOfMonth(now: Date): Date {

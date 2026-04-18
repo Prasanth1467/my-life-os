@@ -6,12 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Heatmap30 } from "@/components/calendar/heatmap30"
-import { LifetimeHeatmap, LifetimeHeatmapHeader } from "@/components/calendar/lifetime-heatmap"
 import { Sparkline } from "@/components/charts/sparkline"
 import { Bars } from "@/components/charts/bars"
 import { DailyQuoteHero } from "@/components/quotes/daily-quote-hero"
 import { addDaysISO, isoToday } from "@/lib/life/dates"
-import { dayNumber, smokeGoalForDay } from "@/lib/life/engine"
+import { smokeGoalForDay } from "@/lib/life/engine"
 import { useLifeDerived, useLifeStore } from "@/lib/store/lifeStore"
 import type { ISODate } from "@/lib/life/types"
 import { useDailyQuote } from "@/lib/quotes/use-daily-quote"
@@ -21,8 +20,7 @@ export default function DashboardPage() {
   const derived = useLifeDerived()
   const state = useLifeStore((s) => s.state)
   const today = isoToday()
-  const dayNum = React.useMemo(() => dayNumber(state, today), [state, today])
-  const quote = useDailyQuote(dayNum)
+  const quote = useDailyQuote(today)
   const stats = React.useMemo(() => computeDisciplineStats(state, today), [state, today])
 
   const weekDays = React.useMemo(() => {
@@ -56,12 +54,10 @@ export default function DashboardPage() {
     return alerts
   }, [derived.progress, state, today])
 
-  const levelPct = Math.round((derived.levelCurrent / Math.max(1, derived.levelNext)) * 100)
-
   return (
     <div className="space-y-6">
       <DailyQuoteHero quote={quote} />
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Today Score</CardTitle>
@@ -73,25 +69,6 @@ export default function DashboardPage() {
               <Progress value={derived.score} />
             </div>
             <div className="mt-2 text-xs text-muted-foreground">{derived.progress}% execution</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>XP + Level</CardTitle>
-            <CardDescription>Dopamine loop, but compounding.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-extrabold">L{derived.level}</div>
-              <Badge variant="outline">{derived.xp} XP</Badge>
-            </div>
-            <div className="mt-2">
-              <Progress value={levelPct} />
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {derived.levelCurrent} / {derived.levelNext} to next level
-            </div>
           </CardContent>
         </Card>
 
@@ -143,27 +120,14 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Lifetime heatmap</CardTitle>
-            <CardDescription>Check-in days vs missed days since your start date.</CardDescription>
-          </div>
-          <LifetimeHeatmapHeader />
-        </CardHeader>
-        <CardContent>
-          <LifetimeHeatmap state={state} maxWeeks={32} />
-        </CardContent>
-      </Card>
-
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>30-Day Heatmap</CardTitle>
-            <CardDescription>Recent check-ins and misses at a glance.</CardDescription>
+            <CardTitle>Calendar (30 days)</CardTitle>
+            <CardDescription>Recent check-ins and misses. Open the full grid from the link below.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Heatmap30 state={state} />
+            <Heatmap30 state={state} showViewAll />
           </CardContent>
         </Card>
 
